@@ -1,0 +1,53 @@
+import groovy.json.*
+
+[ANUN_PLATFORM: "jenkins", CREDENTIAL_ID: "CLI_CLI", ANUN_USER: "admin", ANUN_URL: "https://team2employee.com/"]
+ANUN_CLI_URL = "https://api.anun.cloud/runner/external/get-link"
+
+VERIFY_SSL = false
+INSTANCES = [
+
+]
+
+
+pipeline {
+    agent { label 'CLI_CLI' }
+
+    triggers { cron('23 0 * * *') }
+
+    stages {
+        stage('Install anun CLI') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'CLI_CREDS', variable: 'ANUN_SECRET')]) {
+                        final String anunCliUrlCreator = ANUN_CLI_URL + '?secret=$ANUN_SECRET'
+                        final String signedUrlResponse = sh(script: "curl \"$anunCliUrlCreator\"", returnStdout: true)
+                        final String anunCliDownloadUrl = new JsonSlurper().parseText(signedUrlResponse).body
+                        println("Installing anun-cli...")
+                        sh "pip3 install --user \"$anunCliDownloadUrl\""
+                    }
+                }
+            }
+        }
+        stage('Run Anun CLI') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'CLI_CREDS', variable: 'ANUN_API_KEY')]) {
+                        final String pythonUserBase = sh(script: "python3 -m site --user-base", returnStdout: true).trim()
+                        final String anunCli = sh(script: "find ${pythonUserBase} -name anun-cli", returnStdout: true).trim()
+                        println "${INSTANCES.size()} instances to scan"
+                        INSTANCES.each { instance ->
+                            withCredentials([usernamePassword(credentialsId: instance['CREDENTIAL_ID'], passwordVariable: 'ANUN_TOOL_TOKEN', usernameVariable: 'ANUN_USER')]) {
+                                withEnv(instance.collect { param, arg -> "$param=$arg" }) {
+                                    println("Invoking anun-cli...")
+                                    String verifySSL = VERIFY_SSL ? "--verify-ssl" : ""
+                                    sh "$anunCli $verifySSL"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+  
