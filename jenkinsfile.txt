@@ -3,7 +3,7 @@ import groovy.json.*
 [ANUN_PLATFORM: "jenkins", CREDENTIAL_ID: "CLI_CLI", ANUN_USER: "admin", ANUN_URL: "https://team2employee.com/"]
 ANUN_CLI_URL = "https://api.anun.cloud/runner/external/get-link"
 
-VERIFY_SSL = false
+VERIFY_SSL = true
 INSTANCES = [
 
 ]
